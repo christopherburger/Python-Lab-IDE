@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Python Lab IDE</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <style>
+        /* --- QUEUE-MATCHED BASE STYLES --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #fafafa;
+            color: #333;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        /* Typography & Headers */
+        h1 { margin-top: 0; margin-bottom: 0.5rem; font-size: 1.8rem; color: #333; }
+
+        .utility-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+
+        /* --- BUTTON STYLING --- */
+        .btn {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-primary:disabled { background: #a0cbfc; cursor: not-allowed; }
+
+        .btn-danger { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+        .btn-danger:hover { background: #fecaca; }
+
+        .btn-success { background: #d1fae5; color: #059669; border: 1px solid #a7f3d0; }
+        .btn-success:hover { background: #a7f3d0; }
+
+        .btn-utility { background: #e5e7eb; color: #4b5563; }
+        .btn-utility:hover { background: #d1d5db; }
+
+        /* --- LAYOUT & PANELS --- */
+        .container { display: flex; gap: 20px; margin-bottom: 20px; }
+        .panel { flex: 1; display: flex; flex-direction: column; }
+        .panel-header { font-weight: 600; color: #444; text-transform: uppercase; font-size: 0.85em; letter-spacing: 0.05em; margin-bottom: 10px; }
+
+        /* --- QUEUE-MATCHED TABS --- */
+        .tab-bar { display: flex; flex-wrap: wrap; gap: 5px; border-bottom: 2px solid #eee; padding-bottom: 0; }
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            color: #666;
+            background: #f1f1f1;
+            border-radius: 8px 8px 0 0;
+            font-weight: 500;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+        .tab.active {
+            background: #fff;
+            color: #007bff;
+            font-weight: bold;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+            border-bottom: 2px solid #007bff;
+            margin-bottom: -2px;
+        }
+        .tab:hover:not(.active) { background: #e5e7eb; }
+        .tab-name { user-select: none; }
+        .tab-close { margin-left: 10px; color: #9ca3af; font-size: 12px; font-weight: bold; }
+        .tab-close:hover { color: #dc2626; }
+
+        .add-tab { padding: 10px 15px; cursor: pointer; background: #e5e7eb; border-radius: 8px 8px 0 0; font-weight: bold; color: #666; }
+        .add-tab:hover { background: #d1d5db; }
+
+        /* --- TEXT AREAS (With Queue Shadows) --- */
+        .editor-wrapper {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 0 0 8px 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #eee;
+            border-top: none;
+        }
+        textarea {
+            width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 14px; padding: 15px; resize: vertical; border: none; outline: none; background: transparent;
+        }
+        textarea#code { height: 400px; }
+
+        .output-wrapper {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #eee;
+        }
+        textarea#output { height: 439px; } /* Aligned height */
+
+        .button-group { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;}
+
+        /* --- INFO BOX --- */
+        .rules-box {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #eee;
+            margin-top: 10px;
+        }
+        .info-tab-bar { display: flex; gap: 5px; border-bottom: 2px solid #eee; margin-bottom: 15px; }
+        .info-tab { padding: 10px 15px; cursor: pointer; font-weight: 500; color: #666; background: #f1f1f1; border-radius: 8px 8px 0 0; font-size: 14px; }
+        .info-tab.active { background: #fff; color: #007bff; font-weight: bold; border-bottom: 2px solid #007bff; margin-bottom: -2px; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
+        .info-tab:hover:not(.active) { background: #e5e7eb; }
+
+        .info-pane { display: none; font-size: 14.5px; line-height: 1.6; color: #444; }
+        .info-pane.active { display: block; }
+        .info-pane ul { margin-top: 10px; padding-left: 20px; }
+        .submission-header { background-color: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; margin-top: 15px; font-family: monospace; font-size: 13px; color: #444; white-space: pre-wrap; }
+
+        #copy-btn {
+            margin-left: auto;
+        }
+        /* --- DARK MODE OVERRIDES --- */
+        body.dark-mode { background-color: #121212; color: #e5e7eb; }
+        body.dark-mode h1, body.dark-mode .panel-header { color: #e5e7eb; }
+        body.dark-mode .editor-wrapper, body.dark-mode .output-wrapper, body.dark-mode .rules-box { background: #1e1e1e; border-color: #333; }
+        body.dark-mode textarea { color: #e5e7eb; }
+        body.dark-mode .tab-bar, body.dark-mode .info-tab-bar { border-bottom-color: #333; }
+        body.dark-mode .tab, body.dark-mode .info-tab { background: #2d2d2d; color: #9ca3af; }
+        body.dark-mode .tab.active, body.dark-mode .info-tab.active { background: #1e1e1e; color: #60a5fa; border-bottom-color: #60a5fa; }
+        body.dark-mode .tab:hover:not(.active), body.dark-mode .info-tab:hover:not(.active) { background: #374151; }
+        body.dark-mode .add-tab { background: #374151; color: #9ca3af; }
+        body.dark-mode .btn-utility { background: #374151; color: #e5e7eb; }
+        body.dark-mode .btn-danger { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+        body.dark-mode .btn-success { background: #064e3b; color: #6ee7b7; border-color: #065f46; }
+        body.dark-mode .submission-header { background: #121212; border-color: #333; color: #e5e7eb; }
+    </style>
+</head>
+<body>
+
+    <div class="utility-bar">
+        <h1>Python Lab Environment</h1>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn btn-utility" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+            <button class="btn btn-utility" onclick="adjustFont(-2)">A -</button>
+            <button class="btn btn-utility" onclick="adjustFont(2)">A +</button>
+            <button class="btn btn-danger" onclick="factoryReset()">Reset IDE</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header">Code Editor</div>
+            <div id="tab-bar" class="tab-bar"></div>
+            <div class="editor-wrapper">
+                <textarea id="code" spellcheck="false"></textarea>
+            </div>
+            <div class="button-group">
+                <button id="run-btn" class="btn btn-primary" onclick="runPython()" disabled>Loading Pyodide...</button>
+                <input type="file" id="file-upload" style="display: none;" onchange="handleFileUpload(event)">
+                <input type="file" id="file-upload" style="display: none;" onchange="handleFileUpload(event)">
+                <button class="btn btn-utility" onclick="document.getElementById('file-upload').click()">Upload File</button>
+                <button class="btn btn-utility" onclick="downloadFileFromVFS()">Download File</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Console Output</div>
+            <div class="output-wrapper">
+                <textarea id="output" readonly spellcheck="false">Initializing the Python runtime...</textarea>
+            </div>
+            <div class="button-group">
+                <button id="stop-btn" class="btn btn-danger" onclick="resetEnvironment()">Clear Output</button>
+                <button id="copy-btn" class="btn btn-success" onclick="copyConsoleOutput()">Copy Output</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="rules-box">
+        <div class="info-tab-bar">
+            <div class="info-tab active" onclick="switchInfoTab(this, 'info-general')">General Info</div>
+            <div class="info-tab" onclick="switchInfoTab(this, 'info-rules')">Lab Rules</div>
+            <div class="info-tab" onclick="switchInfoTab(this, 'info-submission')">Submission Header</div>
+        </div>
+
+        <div id="info-general" class="info-pane active">
+            <p>Welcome to the Python Lab Environment. This environment is designed primarily for use within the LockDown Browser. You may want to use an IDE with more features for practicing outside of class. </p>
+            <ul>
+
+                <li><strong>Auto-Save:</strong> Your code is saved locally on every keystroke. If the browser freezes (like with an infinite loop), refresh or close and reopen the page.</li>
+                <li><strong>Clipboard Backup:</strong> Pressing <b>Ctrl+S</b> or <b>Cmd+S</b> will copy your active tab's code to your clipboard.</li>
+                <li><strong>Console:</strong> The "<b>Clear Output</b>" button will wipe your output history. Use "<b>Copy Output</b>" to copy your results to the clipboard.</li>
+                <li><strong>Downloading and Uploading Files:</strong> You can download a file written to the Virtual Filesystem using the <b>Download File</b> button. You will need to type the name of the file into the prompt.
+                Note that downloading is unavailable when using the LockDown Browser. Uploading files can be done using the <b>Upload File</b> button.</li>
+                <li><strong>Editor Tabs:</strong> Use the "<b> + </b>" button on the code editor to open new coding panes.</li>
+                <li><strong>Font Sizing:</strong> Use the "<b>A -</b>" button to decrease the font size. Use the "<b>A +</b>" button to increase the font size.</li>
+                <li><strong>Renaming:</strong> Double-click a tab name to rename it (e.g., "Question_1.py").</li>
+
+
+
+            </ul>
+        </div>
+
+        <div id="info-rules" class="info-pane">
+            <ul>
+
+                <li><strong>General Lab Rules:</strong> Students must review and comply with the general lab policies of the Department of Computer and Information Science.
+See Blackboard for the full set of lab rules.</li>
+<li><strong>Attendance Verification:</strong> Attendance must be confirmed by signing the attendance sheet.</li>
+                <li><strong>Electronic Devices:</strong> Use of electronic devices apart from the provided lab computer is prohibited. Once
+logged into Blackboard (requiring two-factor authentication), all personal devices must
+be stored out of reach (e.g., in a container or designated area).</li>
+<li><strong>Labs are in person:</strong> You must complete the lab from the classroom. Remote submissions are prohibited.
+Submitting an assignment while not being present in the lab is academic
+misconduct.</li>
+                <li><strong>Privacy Screens:</strong> Privacy screens must remain attached to monitors at all times.</li>
+
+
+
+            </ul>
+        </div>
+
+        <div id="info-submission" class="info-pane">
+            <p>Some courses require you to include the following header including the triple quotation marks before and after to recieve credit. See your specific course rules for further information. </p>
+            <div class="submission-header">
+"""
+Course: CSCI <b>YOUR COURSE</b> - Section <b>YOUR SECTION</b>
+Student Name: <b>YOUR NAME</b>
+Student ID: <b>YOUR ID</b>
+Lab # X
+Date: X
+In keeping with the Honor Code of the School of Engineering, by submitting this work I attest that it is my original work and that I did not violate the academic policies set forth in the syllabus.
+"""
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const output = document.getElementById("output");
+        const code = document.getElementById("code");
+        const runBtn = document.getElementById("run-btn");
+        const tabBar = document.getElementById("tab-bar");
+
+        let currentFontSize = 14;
+
+        function adjustFont(change) {
+            currentFontSize += change;
+            if (currentFontSize < 10) currentFontSize = 10;
+            if (currentFontSize > 24) currentFontSize = 24;
+            code.style.fontSize = currentFontSize + "px";
+            output.style.fontSize = currentFontSize + "px";
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+
+        function copyConsoleOutput() {
+            navigator.clipboard.writeText(output.value).then(() => {
+                output.value += "\n>> System: Output copied to clipboard.\n";
+                output.scrollTop = output.scrollHeight;
+            }).catch(err => {
+                output.value += "\n>> System Error: Clipboard access denied.\n";
+                output.scrollTop = output.scrollHeight;
+            });
+        }
+
+        function switchInfoTab(clickedElement, paneId) {
+            document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.info-pane').forEach(p => p.classList.remove('active'));
+            clickedElement.classList.add('active');
+            document.getElementById(paneId).classList.add('active');
+        }
+
+        let tabs = [{ id: 1, name: "main.py", content: "print('Hello, world!')" }];
+        let activeTabId = 1;
+
+        function initTabs() {
+            const savedState = localStorage.getItem("exam_ide_tabs_backup");
+            if (savedState) {
+                const parsed = JSON.parse(savedState);
+                tabs = parsed.tabs;
+                activeTabId = parsed.activeTabId;
+                output.value = ">> System: Previous session and tabs recovered from local storage.\n\n" + output.value;
+            }
+            renderTabs();
+            loadActiveTabContent();
+        }
+
+        function renderTabs() {
+            tabBar.innerHTML = "";
+            tabs.forEach((tab) => {
+                const tabEl = document.createElement("div");
+                tabEl.className = "tab" + (tab.id === activeTabId ? " active" : "");
+
+                const nameSpan = document.createElement("span");
+                nameSpan.className = "tab-name";
+                nameSpan.innerText = tab.name;
+                nameSpan.ondblclick = (e) => { e.stopPropagation(); renameTab(tab.id); };
+                tabEl.appendChild(nameSpan);
+
+                if (tabs.length > 1) {
+                    const closeSpan = document.createElement("span");
+                    closeSpan.className = "tab-close";
+                    closeSpan.innerText = "✖";
+                    closeSpan.onclick = (e) => { e.stopPropagation(); deleteTab(tab.id); };
+                    tabEl.appendChild(closeSpan);
+                }
+
+                tabEl.onclick = () => switchTab(tab.id);
+                tabBar.appendChild(tabEl);
+            });
+
+            const addEl = document.createElement("div");
+            addEl.className = "add-tab";
+            addEl.innerText = "+";
+            addEl.onclick = () => addTab();
+            tabBar.appendChild(addEl);
+        }
+
+        function switchTab(id) {
+            saveCurrentTabContent();
+            activeTabId = id;
+            renderTabs();
+            loadActiveTabContent();
+        }
+
+        function addTab() {
+            saveCurrentTabContent();
+            const newId = Date.now();
+            tabs.push({ id: newId, name: "test_" + tabs.length + ".py", content: "# Sandbox environment\n" });
+            activeTabId = newId;
+            renderTabs();
+            loadActiveTabContent();
+            saveToStorage();
+        }
+
+        function renameTab(id) {
+            const tab = tabs.find(t => t.id === id);
+            if (!tab) return;
+            const newName = prompt("Enter a new name for this tab:", tab.name);
+            if (newName && newName.trim() !== "") {
+                tab.name = newName.trim();
+                saveToStorage();
+                renderTabs();
+            }
+        }
+
+        function deleteTab(id) {
+            const tab = tabs.find(t => t.id === id);
+            if (!tab) return;
+            if (confirm(`Are you sure you want to delete "${tab.name}"?\nThis cannot be undone.`)) {
+                tabs = tabs.filter(t => t.id !== id);
+                if (activeTabId === id) {
+                    activeTabId = tabs[0].id;
+                    loadActiveTabContent();
+                }
+                saveToStorage();
+                renderTabs();
+            }
+        }
+
+        function factoryReset() {
+            // One single, very clear warning
+            if (confirm("WARNING: This will delete ALL tabs, wipe your code, and restore the IDE to its default state.\n\nAre you absolutely sure?")) {
+
+                // 1. Reset the tab state back to square one
+                tabs = [{ id: 1, name: "main.py", content: "print('Hello, world!')" }];
+                activeTabId = 1;
+
+                // 2. Erase the 150-tab nightmare from the browser's local memory
+                localStorage.removeItem("exam_ide_tabs_backup");
+
+                // 3. Force the UI to update
+                renderTabs();
+                loadActiveTabContent();
+
+                // 4. Wipe the console clean
+                output.value = ">> System: IDE Factory Reset complete.\n\n";
+            }
+        }
+
+        function saveCurrentTabContent() {
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            if (activeTab) activeTab.content = code.value;
+        }
+
+        function loadActiveTabContent() {
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            if (activeTab) code.value = activeTab.content;
+        }
+
+        function saveToStorage() {
+            saveCurrentTabContent();
+            localStorage.setItem("exam_ide_tabs_backup", JSON.stringify({ tabs, activeTabId }));
+        }
+
+        code.addEventListener("input", saveToStorage);
+        initTabs();
+
+        code.addEventListener("keydown", function(e) {
+            const isModifier = e.ctrlKey || e.metaKey;
+            const key = e.key.toLowerCase();
+
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 4;
+                this.dispatchEvent(new Event('input'));
+            }
+
+            if (isModifier && (key === 's' || key === 'c')) {
+                e.preventDefault();
+                const textToCopy = code.value.substring(code.selectionStart, code.selectionEnd) || code.value;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    output.value += "\n>> System: Code successfully backed up to clipboard.\n";
+                    output.scrollTop = output.scrollHeight;
+                }).catch(err => {
+                    output.value += "\n>> System Error: Clipboard access denied.\n";
+                    output.scrollTop = output.scrollHeight;
+                });
+            }
+        });
+
+        let pyodideReadyPromise = loadPyodideEnvironment();
+
+        async function loadPyodideEnvironment() {
+            let pyodide = await loadPyodide({
+                stdout: (text) => { output.value += text + "\n"; output.scrollTop = output.scrollHeight; },
+                stderr: (text) => { output.value += text + "\n"; output.scrollTop = output.scrollHeight; }
+            });
+
+            await pyodide.runPythonAsync(`
+import builtins
+from js import prompt, document
+
+def custom_input(prompt_text=""):
+    out_box = document.getElementById("output")
+    out_box.value += str(prompt_text)
+    out_box.scrollTop = out_box.scrollHeight
+
+    val = prompt(prompt_text)
+    if val is None:
+        val = ""
+
+    out_box.value += val + "\\n"
+    out_box.scrollTop = out_box.scrollHeight
+    return val
+
+builtins.input = custom_input
+            `);
+
+            output.value += "Environment Ready. You may begin coding.\n\n";
+            output.scrollTop = output.scrollHeight;
+            runBtn.disabled = false;
+            runBtn.innerText = "Run Code";
+            return pyodide;
+        }
+
+        async function runPython() {
+            let pyodide = await pyodideReadyPromise;
+
+            runBtn.disabled = true;
+            runBtn.innerText = "Running...";
+
+            const activeTab = tabs.find(t => t.id === activeTabId);
+            const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            output.value += `\n--- Running ${activeTab.name} at ${timestamp} ---\n`;
+            output.scrollTop = output.scrollHeight;
+
+            try {
+                // Automatically scan for 'import numpy' etc., and load the required WebAssembly wheels
+                await pyodide.loadPackagesFromImports(code.value);
+
+                // Standard execution
+                await pyodide.runPythonAsync(code.value);
+            } catch (err) {
+                output.value += err + "\n";
+                output.scrollTop = output.scrollHeight;
+            } finally {
+                runBtn.disabled = false;
+                runBtn.innerText = "Run Code";
+            }
+        }
+
+        function resetEnvironment() {
+            output.value = ">> System: Console cleared.\n\n";
+        }
+
+
+        // --- FILE UPLOAD TO VIRTUAL FILE SYSTEM ---
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Ensure Pyodide is fully loaded before trying to access its file system
+            let pyodide = await pyodideReadyPromise;
+
+            const reader = new FileReader();
+
+            // Once the browser finishes reading the file from the student's hard drive...
+            reader.onload = function(e) {
+                // Convert the file into a raw byte array
+                const data = new Uint8Array(e.target.result);
+
+                try {
+                    // Write it directly to the Pyodide Virtual File System
+                    pyodide.FS.writeFile(file.name, data);
+
+                    // Echo a success message to the console
+                    output.value += `\n>> System: File '${file.name}' successfully uploaded to virtual storage.\n`;
+                    output.scrollTop = output.scrollHeight;
+                } catch (err) {
+                    output.value += `\n>> System Error: Could not upload '${file.name}'.\n`;
+                    output.scrollTop = output.scrollHeight;
+                }
+            };
+
+            // Start reading the file
+            reader.readAsArrayBuffer(file);
+
+            // Reset the input element so the student can upload the exact same file again if they accidentally delete it
+            event.target.value = "";
+        }
+
+
+        // --- FILE DOWNLOAD FROM VIRTUAL FILE SYSTEM ---
+        async function downloadFileFromVFS() {
+            // Ask the student which file they generated in Python
+            const filename = prompt("Enter the exact name of the file you want to download (e.g., results.csv):");
+
+            // Cancel if they hit escape or left it blank
+            if (!filename) return;
+
+            let pyodide = await pyodideReadyPromise;
+
+            try {
+                // 1. Read the file from the Pyodide Virtual File System
+                // This returns a raw Uint8Array of the file's binary data
+                const fileData = pyodide.FS.readFile(filename);
+
+                // 2. Package the data into a Blob
+                const blob = new Blob([fileData], { type: "application/octet-stream" });
+                const url = window.URL.createObjectURL(blob);
+
+                // 3. Create a temporary, invisible link and force the browser to click it
+                const a = document.createElement("a");
+                a.style.display = "none";
+                a.href = url;
+                a.download = filename; // Sets the suggested filename for the student's hard drive
+
+                document.body.appendChild(a);
+                a.click();
+
+                // 4. Clean up the temporary link and memory
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                output.value += `\n>> System: File '${filename}' downloaded successfully.\n`;
+                output.scrollTop = output.scrollHeight;
+
+            } catch (err) {
+                // Catch errors if the student typed the wrong filename or the file wasn't created
+                output.value += `\n>> System Error: Could not find '${filename}'. Make sure your Python script generated it and the spelling is exact.\n`;
+                output.scrollTop = output.scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>
