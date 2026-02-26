@@ -1,4 +1,4 @@
-Client-Side Python Exam IDE
+##Client-Side Python Exam IDE##
 A lightweight, zero-backend Python Integrated Development Environment (IDE) built specifically for secure academic testing and introductory programming courses.
 
 Powered by Pyodide (Python compiled to WebAssembly), this IDE runs the CPython interpreter entirely inside the student's local browser tab. It requires no backend compute servers, no database configurations, and seamlessly integrates with high-security testing environments like Respondus LockDown Browser.
