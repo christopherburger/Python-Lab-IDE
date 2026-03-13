@@ -1,6 +1,6 @@
 # Client-Side Python Lab IDE
 
-A lightweight, zero-backend Python Integrated Development Environment (IDE) built specifically for introductory programming courses.
+A lightweight, zero-backend Python Integrated Development Environment built specifically for introductory programming courses in a restricted academic intranet environment.
 
 Powered by Pyodide (Python compiled to WebAssembly), this IDE runs the CPython interpreter entirely inside the student's local browser tab. It requires no backend compute servers, no database configurations, and integrates with high-security testing environments like Respondus LockDown Browser.
 
