@@ -85,20 +85,52 @@
 
         /* --- TEXT AREAS (With Queue Shadows) --- */
         .editor-wrapper {
-            background: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-radius: 0 0 8px 8px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            /*background: white;*/
+            /*box-shadow: 0 1px 3px rgba(0,0,0,0.1);*/
+            /*border-radius: 0 0 8px 8px;*/
+            /*overflow: hidden;*/
+            /*display: flex;*/
+            /*flex-direction: column;*/
             border: 1px solid #eee;
             border-top: none;
+            background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 0 0 8px 8px; overflow: hidden;
+            display: flex; /* Aligns line numbers and text area side-by-side */
+            border: 1px solid #eee; border-top: none;
+
+            height: 400px;       /* Fixed default height */
+            resize: vertical;    /* The drag handle goes here now */
+            overflow: hidden;    /* Prevents the line numbers from stretching the box */
         }
+
+        #line-numbers {
+            width: 40px;
+            padding: 15px 10px;
+            background: #f8f9fa;
+            border-right: 1px solid #eee;
+            color: #9ca3af;
+            text-align: right;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 14px;
+            line-height: normal; /* Ensures alignment with textarea */
+            /*overflow: hidden; /* Hides the scrollbar here */
+            user-select: none;
+            overflow-y: hidden;
+        }
+
         textarea {
             width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 14px; padding: 15px; resize: vertical; border: none; outline: none; background: transparent;
         }
-        textarea#code { height: 400px; }
+        textarea#code { height: 400px;
+            flex: 1; /* Takes up remaining space */
+            height: 100%;       /* Fill the parent wrapper */
+            resize: none;       /* Remove the textarea's native drag handle */
+            white-space: pre; /* Prevents word wrap */
+            overflow-wrap: normal;
+            overflow-x: auto; /* Adds horizontal scrollbar if needed */
+            overflow-y: auto;   /* Bring back the vertical scrollbar */
+            line-height: normal; }
 
         .output-wrapper {
             background: white;
@@ -107,7 +139,7 @@
             overflow: hidden;
             border: 1px solid #eee;
         }
-        textarea#output { height: 439px; } /* Aligned height */
+        textarea#output { height: 437px; } /* Aligned height */
 
         .button-group { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;}
 
@@ -166,6 +198,7 @@
             <div class="panel-header">Code Editor</div>
             <div id="tab-bar" class="tab-bar"></div>
             <div class="editor-wrapper">
+                <div id="line-numbers">1</div>
                 <textarea id="code" spellcheck="false"></textarea>
             </div>
             <div class="button-group">
@@ -201,6 +234,7 @@
             <ul>
 
                 <li><strong>Auto-Save:</strong> Your code is saved locally on every keystroke. If the browser freezes (like with an infinite loop), refresh or close and reopen the page.</li>
+                <li><strong>Block Indentation:</strong> Highlight a block of code and press <b>Tab</b> to indent the entire block. Press <b>Shift+Tab</b> to unindent the entire block.</li>
                 <li><strong>Clipboard Backup:</strong> Pressing <b>Ctrl+S</b> or <b>Cmd+S</b> will copy your active tab's code to your clipboard.</li>
                 <li><strong>Console:</strong> The "<b>Clear Output</b>" button will wipe your output history. Use "<b>Copy Output</b>" to copy your results to the clipboard.</li>
                 <li><strong>Downloading and Uploading Files:</strong> You can download a file written to the Virtual Filesystem using the <b>Download File</b> button. You will need to type the name of the file into the prompt.
@@ -208,6 +242,7 @@
                 <li><strong>Editor Tabs:</strong> Use the "<b> + </b>" button on the code editor to open new coding panes.</li>
                 <li><strong>Font Sizing:</strong> Use the "<b>A -</b>" button to decrease the font size. Use the "<b>A +</b>" button to increase the font size.</li>
                 <li><strong>Renaming:</strong> Double-click a tab name to rename it (e.g., "Question_1.py").</li>
+                <li><strong>Undo:</strong> Pressing <b>Ctrl+Z</b> or <b>Cmd+Z</b> will undo the last major typed action in the code window (indentation, deletion, etc.).</li>
 
 
 
@@ -253,8 +288,24 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
         const code = document.getElementById("code");
         const runBtn = document.getElementById("run-btn");
         const tabBar = document.getElementById("tab-bar");
+        const lineNumbers = document.getElementById("line-numbers");
 
         let currentFontSize = 14;
+
+        function updateLineNumbers() {
+            // Count how many lines exist based on newline characters
+            const lines = code.value.split('\n').length;
+            // Generate an array [1, 2, 3...] and join it with newlines
+            lineNumbers.innerText = Array.from({ length: lines }, (_, i) => i + 1).join('\n');
+        }
+
+        // Run this whenever the user types
+        code.addEventListener("input", updateLineNumbers);
+
+        // Ensure line numbers scroll perfectly in sync with the code editor
+        code.addEventListener("scroll", () => {
+            lineNumbers.scrollTop = code.scrollTop;
+        });
 
         function adjustFont(change) {
             currentFontSize += change;
@@ -262,6 +313,7 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
             if (currentFontSize > 24) currentFontSize = 24;
             code.style.fontSize = currentFontSize + "px";
             output.style.fontSize = currentFontSize + "px";
+            lineNumbers.style.fontSize = currentFontSize + "px";
         }
 
         function toggleDarkMode() {
@@ -298,6 +350,36 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
             }
             renderTabs();
             loadActiveTabContent();
+        }
+
+        // --- CUSTOM UNDO STACK ---
+        let editorHistory = {}; // Stores { tabId: ["state1", "state2", ...] }
+
+        function recordHistorySnapshot(force = false) {
+            if (!editorHistory[activeTabId]) editorHistory[activeTabId] = [];
+
+            const history = editorHistory[activeTabId];
+            const currentContent = code.value;
+
+            // Only save if the text actually changed, to avoid duplicate snapshots
+            if (history.length === 0 || history[history.length - 1] !== currentContent || force) {
+                history.push(currentContent);
+                // Cap the memory to the last 50 actions per tab to prevent browser lag
+                if (history.length > 50) history.shift();
+            }
+        }
+
+        function triggerUndo() {
+            const history = editorHistory[activeTabId];
+            if (history && history.length > 0) {
+                // Pop the most recent snapshot off the stack and apply it
+                const previousState = history.pop();
+                code.value = previousState;
+
+                // Manually trigger the line numbers and auto-save to sync with the restored text
+                updateLineNumbers();
+                saveToStorage();
+            }
         }
 
         function renderTabs() {
@@ -400,7 +482,11 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
 
         function loadActiveTabContent() {
             const activeTab = tabs.find(t => t.id === activeTabId);
-            if (activeTab) code.value = activeTab.content;
+            if (activeTab) {
+                code.value = activeTab.content;
+                recordHistorySnapshot(); // Take baseline snapshot
+                if (typeof updateLineNumbers === "function") updateLineNumbers();
+            }
         }
 
         function saveToStorage() {
@@ -411,19 +497,60 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
         code.addEventListener("input", saveToStorage);
         initTabs();
 
+// --- KEYBOARD SHORTCUTS (TAB, UNDO, & SAVE) ---
         code.addEventListener("keydown", function(e) {
             const isModifier = e.ctrlKey || e.metaKey;
             const key = e.key.toLowerCase();
 
+            // 1. Handle UNDO (Ctrl+Z / Cmd+Z)
+            if (isModifier && key === 'z') {
+                e.preventDefault(); // Stop the browser's broken native undo
+                triggerUndo();
+                return; // Exit early
+            }
+
+            // 2. Handle Routine Snapshots (Space or Enter)
+            if (e.key === ' ' || e.key === 'Enter') {
+                recordHistorySnapshot();
+            }
+
+            // 3. Handle Tab and Shift+Tab
             if (e.key === 'Tab') {
                 e.preventDefault();
-                const start = this.selectionStart;
-                const end = this.selectionEnd;
-                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
-                this.selectionStart = this.selectionEnd = start + 4;
+
+                // Take a snapshot RIGHT BEFORE we inject the spaces, so they can undo the formatting
+                recordHistorySnapshot();
+
+                let start = this.selectionStart;
+                let end = this.selectionEnd;
+                let value = this.value;
+
+                let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                let lineEnd = value.indexOf('\n', end);
+                if (lineEnd === -1) lineEnd = value.length;
+
+                let selectedLines = value.substring(lineStart, lineEnd);
+
+                if (e.shiftKey) {
+                    let newLines = selectedLines.replace(/^ {1,4}/gm, '');
+                    this.value = value.substring(0, lineStart) + newLines + value.substring(lineEnd);
+                    this.selectionStart = lineStart;
+                    this.selectionEnd = lineStart + newLines.length;
+                } else {
+                    if (start === end) {
+                        this.value = value.substring(0, start) + "    " + value.substring(end);
+                        this.selectionStart = this.selectionEnd = start + 4;
+                    } else {
+                        let newLines = selectedLines.replace(/^/gm, '    ');
+                        this.value = value.substring(0, lineStart) + newLines + value.substring(lineEnd);
+                        this.selectionStart = lineStart;
+                        this.selectionEnd = lineStart + newLines.length;
+                    }
+                }
                 this.dispatchEvent(new Event('input'));
             }
 
+            // 4. Handle Save/Copy (Ctrl+S / Cmd+S)
             if (isModifier && (key === 's' || key === 'c')) {
                 e.preventDefault();
                 const textToCopy = code.value.substring(code.selectionStart, code.selectionEnd) || code.value;
@@ -434,6 +561,53 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
                     output.value += "\n>> System Error: Clipboard access denied.\n";
                     output.scrollTop = output.scrollHeight;
                 });
+            }
+
+
+            // 5. Handle Block Comment Toggle (Ctrl+/ or Cmd+/)
+            if (isModifier && key === '/') {
+                e.preventDefault();
+
+                // Take a snapshot for the Undo stack before making changes
+                recordHistorySnapshot();
+
+                let start = this.selectionStart;
+                let end = this.selectionEnd;
+                let value = this.value;
+
+                // Find the start and end of the lines currently highlighted
+                let lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                let lineEnd = value.indexOf('\n', end);
+                if (lineEnd === -1) lineEnd = value.length;
+
+                let selectedLines = value.substring(lineStart, lineEnd);
+                let linesArray = selectedLines.split('\n');
+
+                // Check if all non-empty lines are already commented
+                let allCommented = linesArray.every(line => line.trim() === '' || line.trim().startsWith('#'));
+
+                let newLinesArray = linesArray.map(line => {
+                    if (line.trim() === '') return line; // Ignore completely blank lines
+
+                    if (allCommented) {
+                        // UNCOMMENT: Remove the first '#' and an optional single space after it
+                        return line.replace(/^(\s*)#\s?/, '$1');
+                    } else {
+                        // COMMENT: Prepend '# ' to the absolute start of the line
+                        return '# ' + line;
+                    }
+                });
+
+                let newLines = newLinesArray.join('\n');
+                this.value = value.substring(0, lineStart) + newLines + value.substring(lineEnd);
+
+                // Keep the text highlighted after toggling
+                this.selectionStart = lineStart;
+                this.selectionEnd = lineStart + newLines.length;
+
+                // Trigger auto-save and line number updates
+                this.dispatchEvent(new Event('input'));
+                return;
             }
         });
 
@@ -480,7 +654,7 @@ builtins.input = custom_input
 
             const activeTab = tabs.find(t => t.id === activeTabId);
             const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-            output.value += `\n--- Running ${activeTab.name} at ${timestamp} ---\n`;
+            output.value += `\n--- Running ${activeTab.name} at ${timestamp} ---\n\n`;
             output.scrollTop = output.scrollHeight;
 
             try {
