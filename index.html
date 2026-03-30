@@ -179,6 +179,9 @@
         body.dark-mode .btn-danger { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
         body.dark-mode .btn-success { background: #064e3b; color: #6ee7b7; border-color: #065f46; }
         body.dark-mode .submission-header { background: #121212; border-color: #333; color: #e5e7eb; }
+        body.dark-mode #timeout-input { background: #374151; color: #e5e7eb; border-color: #4b5563; }
+        body.dark-mode label[for="timeout-input"], body.dark-mode span { color: #9ca3af; }
+        body.dark-mode #line-numbers { background: #1e1e1e; color: #6b7280; border-right-color: #333; }
     </style>
 </head>
 <body>
@@ -204,9 +207,13 @@
             <div class="button-group">
                 <button id="run-btn" class="btn btn-primary" onclick="runPython()" disabled>Loading Pyodide...</button>
                 <input type="file" id="file-upload" style="display: none;" onchange="handleFileUpload(event)">
-                <input type="file" id="file-upload" style="display: none;" onchange="handleFileUpload(event)">
                 <button class="btn btn-utility" onclick="document.getElementById('file-upload').click()">Upload File</button>
                 <button class="btn btn-utility" onclick="downloadFileFromVFS()">Download File</button>
+                <div style="display: flex; align-items: center; gap: 6px; margin-left: 5px; margin-right: auto;">
+                    <label for="timeout-input" style="font-size: 13px; color: #666; font-weight: 500;">Timeout:</label>
+                    <input type="number" id="timeout-input" value="10" min="1" max="600" style="width: 45px; padding: 6px 4px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; text-align: center;">
+                    <span style="font-size: 13px; color: #666;">sec</span>
+                </div>
             </div>
         </div>
 
@@ -216,8 +223,16 @@
                 <textarea id="output" readonly spellcheck="false">Initializing the Python runtime...</textarea>
             </div>
             <div class="button-group">
-                <button id="stop-btn" class="btn btn-danger" onclick="resetEnvironment()">Clear Output</button>
+                <button id="stop-btn" class="btn btn-danger" onclick="resetEnvironment()">Clear / Reset</button>
                 <button id="copy-btn" class="btn btn-success" onclick="copyConsoleOutput()">Copy Output</button>
+            </div>
+
+            <div class="panel-header" style="margin-top: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleStdIn()">
+                <span>Alternate Input Window</span>
+                <span id="stdin-toggle-icon">▼</span>
+            </div>
+            <div class="editor-wrapper" id="stdin-wrapper" style="height: 80px; border-radius: 8px; display: none;">
+                <textarea id="std-input" placeholder="If your code requires input and the input popup does not display on your computer, type it here before clicking Run Code. If you have multiple values, place each individual value on its own line." style="height: 100%; resize: none; overflow-y: auto; white-space: pre-wrap;"></textarea>
             </div>
         </div>
     </div>
@@ -233,7 +248,7 @@
             <p>Welcome to the Python Lab Environment. This environment is designed primarily for use within the LockDown Browser. You may want to use an IDE with more features for practicing outside of class. </p>
             <ul>
 
-                <li><strong>Auto-Save:</strong> Your code is saved locally on every keystroke. If the browser freezes (like with an infinite loop), refresh or close and reopen the page.</li>
+                <li><strong>Auto-Save:</strong> Your code is saved locally on every keystroke. If the browser freezes, refresh or close and reopen the page.</li>
                 <li><strong>Block Indentation:</strong> Highlight a block of code and press <b>Tab</b> to indent the entire block. Press <b>Shift+Tab</b> to unindent the entire block.</li>
                 <li><strong>Clipboard Backup:</strong> Pressing <b>Ctrl+S</b> or <b>Cmd+S</b> will copy your active tab's code to your clipboard.</li>
                 <li><strong>Console:</strong> The "<b>Clear Output</b>" button will wipe your output history. Use "<b>Copy Output</b>" to copy your results to the clipboard.</li>
@@ -242,6 +257,7 @@
                 <li><strong>Editor Tabs:</strong> Use the "<b> + </b>" button on the code editor to open new coding panes.</li>
                 <li><strong>Font Sizing:</strong> Use the "<b>A -</b>" button to decrease the font size. Use the "<b>A +</b>" button to increase the font size.</li>
                 <li><strong>Renaming:</strong> Double-click a tab name to rename it (e.g., "Question_1.py").</li>
+                <li><strong>Timeout:</strong> Code will automatically stop execution after 10 seconds by default. This can be adjusted by alterting the timeout value (minimum 1 second, maximum 600 seconds).</li>
                 <li><strong>Undo:</strong> Pressing <b>Ctrl+Z</b> or <b>Cmd+Z</b> will undo the last major typed action in the code window (indentation, deletion, etc.).</li>
 
 
@@ -318,6 +334,21 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
 
         function toggleDarkMode() {
             document.body.classList.toggle('dark-mode');
+        }
+
+        // --- UI TOGGLES ---
+        function toggleStdIn() {
+            const wrapper = document.getElementById("stdin-wrapper");
+            const icon = document.getElementById("stdin-toggle-icon");
+
+            // The wrapper uses 'flex' natively from the .editor-wrapper CSS class
+            if (wrapper.style.display === "none") {
+                wrapper.style.display = "flex";
+                icon.innerText = "▲"; // Indicate it can be closed
+            } else {
+                wrapper.style.display = "none";
+                icon.innerText = "▼"; // Indicate it can be opened
+            }
         }
 
         function copyConsoleOutput() {
@@ -609,11 +640,41 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
                 this.dispatchEvent(new Event('input'));
                 return;
             }
+
+            // 6. Handle Auto-Wrapping (Quotes, Parentheses, Brackets)
+            const wrappers = {
+                "'": "'",
+                '"': '"',
+                '(': ')',
+                '[': ']',
+                '{': '}'
+            };
+
+            if (wrappers[e.key] && this.selectionStart !== this.selectionEnd) {
+                e.preventDefault();
+                recordHistorySnapshot();
+
+                let start = this.selectionStart;
+                let end = this.selectionEnd;
+                let value = this.value;
+                let selectedText = value.substring(start, end);
+
+                let openChar = e.key;
+                let closeChar = wrappers[e.key];
+                let newText = openChar + selectedText + closeChar;
+
+                this.value = value.substring(0, start) + newText + value.substring(end);
+                this.selectionStart = start + 1;
+                this.selectionEnd = end + 1;
+
+                this.dispatchEvent(new Event('input'));
+                return;
+            }
         });
 
         let pyodideReadyPromise = loadPyodideEnvironment();
 
-        async function loadPyodideEnvironment() {
+async function loadPyodideEnvironment() {
             let pyodide = await loadPyodide({
                 stdout: (text) => { output.value += text + "\n"; output.scrollTop = output.scrollHeight; },
                 stderr: (text) => { output.value += text + "\n"; output.scrollTop = output.scrollHeight; }
@@ -621,16 +682,58 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
 
             await pyodide.runPythonAsync(`
 import builtins
+import time
 from js import prompt, document
 
+# State variables to track rapid-fire empty inputs
+runaway_counter = 0
+last_prompt_time = time.time()
+
 def custom_input(prompt_text=""):
+    global runaway_counter, last_prompt_time
+
     out_box = document.getElementById("output")
+    in_box = document.getElementById("std-input")
+
     out_box.value += str(prompt_text)
     out_box.scrollTop = out_box.scrollHeight
 
-    val = prompt(prompt_text)
-    if val is None:
-        val = ""
+    in_box_val = in_box.value
+    if in_box_val != "":
+        # Valid pre-loaded input found. Reset the safety counter.
+        runaway_counter = 0
+        lines = in_box_val.split("\\n")
+        val = lines.pop(0)
+        in_box.value = "\\n".join(lines)
+    else:
+        # Fallback to the pop-up (which might be suppressed)
+        current_time = time.time()
+
+        # If less than 0.1 seconds have passed since the last prompt, flag it
+        if current_time - last_prompt_time < 0.1:
+            runaway_counter += 1
+        else:
+            runaway_counter = 0
+
+        last_prompt_time = current_time
+
+        # If it happens 20 times in a row, kill the script
+        if runaway_counter > 20:
+            raise RuntimeError("System Protection: Runaway input loop detected. Script terminated.")
+
+        # Start a stopwatch before showing the dialogue
+        wait_start = time.time()
+        val = prompt(prompt_text)
+
+        # CANCEL FIX: Simulate a Ctrl+C KeyboardInterrupt
+        if val is None:
+            out_box.value += "[Cancelled]\\n"
+            out_box.scrollTop = out_box.scrollHeight
+            raise KeyboardInterrupt("Execution cancelled by user.")
+
+        # TIMER FIX: Pause the Infinite Loop Guard by shifting its start time forward
+        if hasattr(builtins, '_loop_start_time'):
+            builtins._loop_start_time += (time.time() - wait_start)
 
     out_box.value += val + "\\n"
     out_box.scrollTop = out_box.scrollHeight
@@ -654,19 +757,51 @@ builtins.input = custom_input
 
             const activeTab = tabs.find(t => t.id === activeTabId);
             const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-            output.value += `\n--- Running ${activeTab.name} at ${timestamp} ---\n\n`;
+            output.value += `\n--- Running ${activeTab.name} at ${timestamp} ---\n`;
             output.scrollTop = output.scrollHeight;
 
             try {
-                // Automatically scan for 'import numpy' etc., and load the required WebAssembly wheels
+                // 1. Load heavy packages (like numpy) BEFORE starting the clock
                 await pyodide.loadPackagesFromImports(code.value);
 
-                // Standard execution
+                // 2. Grab the user's requested timeout, defaulting to 10, with a hard minimum of 1 second
+                const timeoutInput = document.getElementById("timeout-input").value;
+                const timeoutValue = Math.max(1, parseFloat(timeoutInput) || 10.0);
+
+                // 3. Inject and activate the Infinite Loop Referee
+                await pyodide.runPythonAsync(`
+import sys
+import time
+import builtins
+
+# Bind the referee variables globally so custom_input can pause them
+builtins._loop_start_time = time.time()
+builtins._op_count = 0
+builtins._timeout_limit = ${timeoutValue}
+
+def _infinite_loop_guard(frame, event, arg):
+    builtins._op_count += 1
+    if builtins._op_count % 1000 == 0:
+        if time.time() - builtins._loop_start_time > builtins._timeout_limit:
+            sys.settrace(None)
+            raise TimeoutError(f"Execution halted. The code exceeded the {builtins._timeout_limit}-second compute limit. If your code is known to be functional, adjust the timeout in the IDE.")
+    return _infinite_loop_guard
+
+sys.settrace(_infinite_loop_guard)
+                `);
+
+                // 3. Execute the student's actual code
                 await pyodide.runPythonAsync(code.value);
+
             } catch (err) {
+                // Catch the TimeoutError (or any syntax errors) and print them cleanly
                 output.value += err + "\n";
                 output.scrollTop = output.scrollHeight;
             } finally {
+                // 4. ALWAYS turn the referee off when execution finishes or crashes
+                // This ensures it doesn't accidentally interfere with the next run
+                await pyodide.runPythonAsync(`sys.settrace(None)`);
+
                 runBtn.disabled = false;
                 runBtn.innerText = "Run Code";
             }
