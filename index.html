@@ -202,7 +202,7 @@
             <div id="tab-bar" class="tab-bar"></div>
             <div class="editor-wrapper">
                 <div id="line-numbers">1</div>
-                <textarea id="code" spellcheck="false"></textarea>
+                <textarea id="code" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></textarea>
             </div>
             <div class="button-group">
                 <button id="run-btn" class="btn btn-primary" onclick="runPython()" disabled>Loading Pyodide...</button>
@@ -232,7 +232,7 @@
                 <span id="stdin-toggle-icon">▼</span>
             </div>
             <div class="editor-wrapper" id="stdin-wrapper" style="height: 80px; border-radius: 8px; display: none;">
-                <textarea id="std-input" placeholder="If your code requires input and the input popup does not display on your computer, type it here before clicking Run Code. If you have multiple values, place each individual value on its own line." style="height: 100%; resize: none; overflow-y: auto; white-space: pre-wrap;"></textarea>
+                <textarea id="std-input" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off" placeholder="If your code requires input and the input popup does not display on your computer, type it here before clicking Run Code. If you have multiple values, place each individual value on its own line." style="height: 100%; resize: none; overflow-y: auto; white-space: pre-wrap;"></textarea>
             </div>
         </div>
     </div>
@@ -675,17 +675,35 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
         let pyodideReadyPromise = loadPyodideEnvironment();
 
 async function loadPyodideEnvironment() {
+            // We can leave these as fallbacks for internal C-level Pyodide errors,
+            // but our actual Python print statements will bypass them entirely now.
             let pyodide = await loadPyodide({
                 stdout: (text) => { output.value += text + "\n"; output.scrollTop = output.scrollHeight; },
                 stderr: (text) => { output.value += text + "\n"; output.scrollTop = output.scrollHeight; }
             });
 
             await pyodide.runPythonAsync(`
+import sys
 import builtins
 import time
 from js import prompt, document
 
-# State variables to track rapid-fire empty inputs
+# --- Direct DOM Pipelining ---
+class DOMStdout:
+    def write(self, text):
+        out_box = document.getElementById("output")
+        out_box.value += str(text)
+        out_box.scrollTop = out_box.scrollHeight
+
+    def flush(self):
+        pass # The DOM updates instantly, so no manual flushing is needed
+
+# Hijack standard output and error
+sys.stdout = DOMStdout()
+sys.stderr = DOMStdout()
+
+
+
 runaway_counter = 0
 last_prompt_time = time.time()
 
@@ -731,7 +749,6 @@ def custom_input(prompt_text=""):
             out_box.scrollTop = out_box.scrollHeight
             raise KeyboardInterrupt("Execution cancelled by user.")
 
-        # TIMER FIX: Pause the Infinite Loop Guard by shifting its start time forward
         if hasattr(builtins, '_loop_start_time'):
             builtins._loop_start_time += (time.time() - wait_start)
 
