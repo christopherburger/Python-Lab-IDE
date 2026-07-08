@@ -51,7 +51,7 @@
 
         /* --- LAYOUT & PANELS --- */
         .container { display: flex; gap: 20px; margin-bottom: 20px; }
-        .panel { flex: 1; display: flex; flex-direction: column; }
+        .panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
         .panel-header { font-weight: 600; color: #444; text-transform: uppercase; font-size: 0.85em; letter-spacing: 0.05em; margin-bottom: 10px; }
 
         /* --- QUEUE-MATCHED TABS --- */
@@ -85,22 +85,13 @@
 
         /* --- TEXT AREAS (With Queue Shadows) --- */
         .editor-wrapper {
-            /*background: white;*/
-            /*box-shadow: 0 1px 3px rgba(0,0,0,0.1);*/
-            /*border-radius: 0 0 8px 8px;*/
-            /*overflow: hidden;*/
-            /*display: flex;*/
-            /*flex-direction: column;*/
-            border: 1px solid #eee;
-            border-top: none;
             background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             border-radius: 0 0 8px 8px; overflow: hidden;
-            display: flex; /* Aligns line numbers and text area side-by-side */
+            display: flex;
             border: 1px solid #eee; border-top: none;
-
-            height: 400px;       /* Fixed default height */
-            resize: vertical;    /* The drag handle goes here now */
-            overflow: hidden;    /* Prevents the line numbers from stretching the box */
+            height: 400px;
+            resize: vertical;
+            overflow: hidden;
         }
 
         #line-numbers {
@@ -112,8 +103,7 @@
             text-align: right;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 14px;
-            line-height: normal; /* Ensures alignment with textarea */
-            /*overflow: hidden; /* Hides the scrollbar here */
+            line-height: normal;
             user-select: none;
             overflow-y: hidden;
         }
@@ -122,15 +112,16 @@
             width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 14px; padding: 15px; resize: vertical; border: none; outline: none; background: transparent;
         }
-        textarea#code { height: 400px;
-            flex: 1; /* Takes up remaining space */
-            height: 100%;       /* Fill the parent wrapper */
-            resize: none;       /* Remove the textarea's native drag handle */
-            white-space: pre; /* Prevents word wrap */
+        textarea#code {
+            flex: 1;
+            height: 100%;
+            resize: none;
+            white-space: pre;
             overflow-wrap: normal;
-            overflow-x: auto; /* Adds horizontal scrollbar if needed */
-            overflow-y: auto;   /* Bring back the vertical scrollbar */
-            line-height: normal; }
+            overflow-x: auto;
+            overflow-y: auto;
+            line-height: normal;
+        }
 
         .output-wrapper {
             background: white;
@@ -139,12 +130,13 @@
             overflow: hidden;
             border: 1px solid #eee;
         }
-        textarea#output { height: 437px; } /* Aligned height */
+        textarea#output { height: 437px; }
 
         .button-group { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;}
 
         /* --- INFO BOX --- */
         .rules-box {
+            clear: both;
             background: white;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             border-radius: 8px;
@@ -206,6 +198,7 @@
             </div>
             <div class="button-group">
                 <button id="run-btn" class="btn btn-primary" onclick="runPython()" disabled>Loading Pyodide...</button>
+                <button id="copy-code-btn" class="btn btn-success" onclick="copyCodeOutput()">Copy Code </button>
                 <input type="file" id="file-upload" style="display: none;" onchange="handleFileUpload(event)">
                 <button class="btn btn-utility" onclick="document.getElementById('file-upload').click()">Upload File</button>
                 <button class="btn btn-utility" onclick="downloadFileFromVFS()">Download File</button>
@@ -223,19 +216,40 @@
                 <textarea id="output" readonly spellcheck="false">Initializing the Python runtime...</textarea>
             </div>
             <div class="button-group">
-                <button id="stop-btn" class="btn btn-danger" onclick="resetEnvironment()">Clear / Reset</button>
-                <button id="copy-btn" class="btn btn-success" onclick="copyConsoleOutput()">Copy Output</button>
-            </div>
-
-            <div class="panel-header" style="margin-top: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleStdIn()">
-                <span>Alternate Input Window</span>
-                <span id="stdin-toggle-icon">▼</span>
-            </div>
-            <div class="editor-wrapper" id="stdin-wrapper" style="height: 80px; border-radius: 8px; display: none;">
-                <textarea id="std-input" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off" placeholder="If your code requires input and the input popup does not display on your computer, type it here before clicking Run Code. If you have multiple values, place each individual value on its own line." style="height: 100%; resize: none; overflow-y: auto; white-space: pre-wrap;"></textarea>
+                <button id="stop-btn" class="btn btn-danger" onclick="resetEnvironment()">Clear All Output</button>
+                <button id="copy-btn" class="btn btn-success" onclick="copyConsoleOutput()">Copy Console Output</button>
             </div>
         </div>
     </div>
+
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleStdIn()">
+                <span>Alternate Input Window</span>
+                <span id="stdin-toggle-icon">▼</span>
+            </div>
+            <div class="editor-wrapper" id="stdin-wrapper" style="height: 250px; border-radius: 8px; display: none;">
+                <textarea id="stdInput" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off" placeholder="If your code requires input and the input popup does not display on your computer, type it here before clicking Run Code. If you have multiple values, place each individual value on its own line." style="height: 100%; resize: none; overflow-y: auto; white-space: pre-wrap;"></textarea>
+            </div>
+        </div>
+
+
+
+<div class="panel">
+            <div class="panel-header" style="cursor: pointer; justify-content: space-between; display: flex; justify-content: space-between; align-items: center;" onclick="togglePlot()" >
+            <span>Plot Output</span>
+            <span id="toggle-icon-plot">▼</span>
+</div>
+            <div class="output-wrapper" id="plot-wrapper" style="display: none; justify-content: center; align-items: center; padding: 10px; height: 250px; resize: vertical;">
+                <span id="plot-placeholder" style="color: #9ca3af; font-style: italic;">Plots will appear here...</span>
+                <img id="plot-output" style="display: none; max-width: 100%; max-height: 100%; border-radius: 4px;" />
+            </div>
+        </div>
+    </div>
+
+
+
+
 
     <div class="rules-box">
         <div class="info-tab-bar">
@@ -251,16 +265,14 @@
                 <li><strong>Auto-Save:</strong> Your code is saved locally on every keystroke. If the browser freezes, refresh or close and reopen the page.</li>
                 <li><strong>Block Indentation:</strong> Highlight a block of code and press <b>Tab</b> to indent the entire block. Press <b>Shift+Tab</b> to unindent the entire block.</li>
                 <li><strong>Clipboard Backup:</strong> Pressing <b>Ctrl+S</b> or <b>Cmd+S</b> will copy your active tab's code to your clipboard.</li>
-                <li><strong>Console:</strong> The "<b>Clear Output</b>" button will wipe your output history. Use "<b>Copy Output</b>" to copy your results to the clipboard.</li>
+                <li><strong>Console:</strong> The "<b>Clear All Output</b>" button will wipe all output history. Use "<b>Copy Console Output</b>" to copy your text output to the clipboard.</li>
                 <li><strong>Downloading and Uploading Files:</strong> You can download a file written to the Virtual Filesystem using the <b>Download File</b> button. You will need to type the name of the file into the prompt.
-                Note that downloading is unavailable when using the LockDown Browser. Uploading files can be done using the <b>Upload File</b> button.</li>
+                 Uploading files can be done using the <b>Upload File</b> button. Note that downloading / uploading is unavailable when using the LockDown Browser. </li>
                 <li><strong>Editor Tabs:</strong> Use the "<b> + </b>" button on the code editor to open new coding panes.</li>
                 <li><strong>Font Sizing:</strong> Use the "<b>A -</b>" button to decrease the font size. Use the "<b>A +</b>" button to increase the font size.</li>
                 <li><strong>Renaming:</strong> Double-click a tab name to rename it (e.g., "Question_1.py").</li>
                 <li><strong>Timeout:</strong> Code will automatically stop execution after 10 seconds by default. This can be adjusted by alterting the timeout value (minimum 1 second, maximum 600 seconds).</li>
                 <li><strong>Undo:</strong> Pressing <b>Ctrl+Z</b> or <b>Cmd+Z</b> will undo the last major typed action in the code window (indentation, deletion, etc.).</li>
-
-
 
             </ul>
         </div>
@@ -278,8 +290,6 @@ be stored out of reach (e.g., in a container or designated area).</li>
 Submitting an assignment while not being present in the lab is academic
 misconduct.</li>
                 <li><strong>Privacy Screens:</strong> Privacy screens must remain attached to monitors at all times.</li>
-
-
 
             </ul>
         </div>
@@ -351,9 +361,34 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
             }
         }
 
+        function togglePlot() {
+            const wrapper = document.getElementById("plot-wrapper");
+            const icon = document.getElementById("toggle-icon-plot");
+
+            // The wrapper uses 'flex' natively from the .editor-wrapper CSS class
+            if (wrapper.style.display === "none") {
+                wrapper.style.display = "flex";
+                icon.innerText = "▲"; // Indicate it can be closed
+            } else {
+                wrapper.style.display = "none";
+                icon.innerText = "▼"; // Indicate it can be opened
+            }
+        }
+
         function copyConsoleOutput() {
             navigator.clipboard.writeText(output.value).then(() => {
                 output.value += "\n>> System: Output copied to clipboard.\n";
+                output.scrollTop = output.scrollHeight;
+            }).catch(err => {
+                output.value += "\n>> System Error: Clipboard access denied.\n";
+                output.scrollTop = output.scrollHeight;
+            });
+        }
+
+        function copyCodeOutput() {
+            const textToCopy = code.value;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                output.value += "\n>> System: Code copied to clipboard.\n";
                 output.scrollTop = output.scrollHeight;
             }).catch(err => {
                 output.value += "\n>> System Error: Clipboard access denied.\n";
@@ -502,6 +537,8 @@ In keeping with the Honor Code of the School of Engineering, by submitting this 
                 loadActiveTabContent();
 
                 // 4. Wipe the console clean
+                resetEnvironment();
+                stdInput.value = "";
                 output.value = ">> System: IDE Factory Reset complete.\n\n";
             }
         }
@@ -702,8 +739,6 @@ class DOMStdout:
 sys.stdout = DOMStdout()
 sys.stderr = DOMStdout()
 
-
-
 runaway_counter = 0
 last_prompt_time = time.time()
 
@@ -711,23 +746,19 @@ def custom_input(prompt_text=""):
     global runaway_counter, last_prompt_time
 
     out_box = document.getElementById("output")
-    in_box = document.getElementById("std-input")
+    in_box = document.getElementById("stdInput")
 
     out_box.value += str(prompt_text)
     out_box.scrollTop = out_box.scrollHeight
 
     in_box_val = in_box.value
     if in_box_val != "":
-        # Valid pre-loaded input found. Reset the safety counter.
         runaway_counter = 0
         lines = in_box_val.split("\\n")
         val = lines.pop(0)
         in_box.value = "\\n".join(lines)
     else:
-        # Fallback to the pop-up (which might be suppressed)
         current_time = time.time()
-
-        # If less than 0.1 seconds have passed since the last prompt, flag it
         if current_time - last_prompt_time < 0.1:
             runaway_counter += 1
         else:
@@ -735,15 +766,12 @@ def custom_input(prompt_text=""):
 
         last_prompt_time = current_time
 
-        # If it happens 20 times in a row, kill the script
         if runaway_counter > 20:
             raise RuntimeError("System Protection: Runaway input loop detected. Script terminated.")
 
-        # Start a stopwatch before showing the dialogue
         wait_start = time.time()
         val = prompt(prompt_text)
 
-        # CANCEL FIX: Simulate a Ctrl+C KeyboardInterrupt
         if val is None:
             out_box.value += "[Cancelled]\\n"
             out_box.scrollTop = out_box.scrollHeight
@@ -778,8 +806,50 @@ builtins.input = custom_input
             output.scrollTop = output.scrollHeight;
 
             try {
-                // 1. Load heavy packages (like numpy) BEFORE starting the clock
+                // 1. Load heavy packages (like numpy/matplotlib) BEFORE starting the clock
                 await pyodide.loadPackagesFromImports(code.value);
+
+                // --- NEW MATPLOTLIB HOOK ---
+                // Only executes if the student is actually trying to use matplotlib
+                if (code.value.includes("matplotlib") || code.value.includes("pyplot")) {
+                    await pyodide.runPythonAsync(`
+import builtins
+import io, base64
+
+try:
+    import matplotlib.pyplot as plt
+    from js import document
+
+    # Hook plt.show() so it bypasses Pyodide's canvas engine and renders pure bytes
+    if not hasattr(plt, '_custom_show_hooked'):
+        def custom_show(*args, **kwargs):
+            buf = io.BytesIO()
+            # Save the figure to RAM, forcing tight borders
+            plt.savefig(buf, format='png', bbox_inches='tight')
+            buf.seek(0)
+            img_str = base64.b64encode(buf.read()).decode('utf-8')
+
+            # Send the image back to the browser UI
+            document.getElementById('plot-placeholder').style.display = 'none'
+            img_el = document.getElementById('plot-output')
+            img_el.src = "data:image/png;base64," + img_str
+            img_el.style.display = 'block'
+
+            # --- AUTO-EXPAND LOGIC ---
+            plot_wrapper = document.getElementById('plot-wrapper')
+            if plot_wrapper.style.display == 'none':
+                plot_wrapper.style.display = 'flex'
+                document.getElementById('toggle-icon-plot').innerText = '▲'
+
+            # Clear the RAM so the next plot is a fresh canvas
+            plt.clf()
+
+        plt.show = custom_show
+        plt._custom_show_hooked = True
+except ImportError:
+    pass
+                    `);
+                }
 
                 // 2. Grab the user's requested timeout, defaulting to 10, with a hard minimum of 1 second
                 const timeoutInput = document.getElementById("timeout-input").value;
@@ -807,7 +877,7 @@ def _infinite_loop_guard(frame, event, arg):
 sys.settrace(_infinite_loop_guard)
                 `);
 
-                // 3. Execute the student's actual code
+                // 4. Execute the student's actual code
                 await pyodide.runPythonAsync(code.value);
 
             } catch (err) {
@@ -815,7 +885,7 @@ sys.settrace(_infinite_loop_guard)
                 output.value += err + "\n";
                 output.scrollTop = output.scrollHeight;
             } finally {
-                // 4. ALWAYS turn the referee off when execution finishes or crashes
+                // 5. ALWAYS turn the referee off when execution finishes or crashes
                 // This ensures it doesn't accidentally interfere with the next run
                 await pyodide.runPythonAsync(`sys.settrace(None)`);
 
@@ -826,6 +896,21 @@ sys.settrace(_infinite_loop_guard)
 
         function resetEnvironment() {
             output.value = ">> System: Console cleared.\n\n";
+
+            // Also reset the Plot Output Window
+            const plotImg = document.getElementById("plot-output");
+            if (plotImg) {
+                plotImg.style.display = "none";
+                plotImg.src = "";
+                document.getElementById("plot-placeholder").style.display = "inline";
+            }
+
+            //Auto-close the panel and reset the arrow
+            const plotWrapper = document.getElementById("plot-wrapper");
+            const plotIcon = document.getElementById("toggle-icon-plot");
+
+            if (plotWrapper) plotWrapper.style.display = "none";
+            if (plotIcon) plotIcon.innerText = "▼";
         }
 
 
