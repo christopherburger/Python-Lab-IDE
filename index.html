@@ -5,7 +5,9 @@
     <title>Python Lab IDE</title>
     <link rel="icon" type="image/png" href="favicon.png">
 
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script> -->
+    <script src="./pyodide/pyodide.js"></script>
+    
     <style>
         /* --- QUEUE-MATCHED BASE STYLES --- */
         body {
@@ -130,7 +132,13 @@
             overflow: hidden;
             border: 1px solid #eee;
         }
-        textarea#output { height: 437px; }
+
+        textarea#output {
+            height: 437px;
+            white-space: pre;       /* Prevents automatic word wrapping */
+            overflow-wrap: normal;  /* Forces text to stay on one line */
+            overflow-x: auto;       /* Adds a horizontal scrollbar just for the output box */
+        }
 
         .button-group { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;}
 
@@ -715,9 +723,23 @@ async function loadPyodideEnvironment() {
             // We can leave these as fallbacks for internal C-level Pyodide errors,
             // but our actual Python print statements will bypass them entirely now.
             let pyodide = await loadPyodide({
+                indexURL: "./pyodide/", // Used only for static linking, comment out if using the download from url
                 stdout: (text) => { output.value += text + "\n"; output.scrollTop = output.scrollHeight; },
                 stderr: (text) => { output.value += text + "\n"; output.scrollTop = output.scrollHeight; }
             });
+
+            // --- SEED DEFAULT LECTURE DATA ---
+            try {
+                const response = await fetch('./superstore.csv');
+                if (response.ok) {
+                    const csvText = await response.text();
+                    // Write the file into Pyodide's virtual local directory
+                    pyodide.FS.writeFile('superstore.csv', csvText, { encoding: 'utf8' });
+                    console.log("Lecture dataset 'superstore.csv' successfully cached.");
+                }
+            } catch (err) {
+                console.error("Failed to pre-load lecture dataset:", err);
+            }
 
             await pyodide.runPythonAsync(`
 import sys
@@ -808,6 +830,19 @@ builtins.input = custom_input
             try {
                 // 1. Load heavy packages (like numpy/matplotlib) BEFORE starting the clock
                 await pyodide.loadPackagesFromImports(code.value);
+
+                                // --- NEW PANDAS CONFIGURATION ---
+                if (code.value.includes("pandas")) {
+                    await pyodide.runPythonAsync(`
+try:
+    import pandas as pd
+    pd.set_option('display.max_columns', 25)
+    pd.set_option('display.width', 1000)      # Tell Pandas the "screen" is 1000 chars wide
+    pd.set_option('display.max_colwidth', 50)
+except ImportError:
+    pass
+                    `);
+                }
 
                 // --- NEW MATPLOTLIB HOOK ---
                 // Only executes if the student is actually trying to use matplotlib
