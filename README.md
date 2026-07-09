@@ -12,7 +12,7 @@ Client-Side Processing: Code compilation and execution happen entirely in the br
 
 Intranet Ready: Capable of running completely offline on a local network by self-hosting the Pyodide .wasm binaries, bypassing campus firewall or internet outage risks.
 
-The current version has self-hosting enabled. You can default to loading pyodide from the cdn by adjusting *script src* and commenting out *indexURL: "./pyodide/"* in the *loadPyodideEnvironment * function. The current configuration has you extract the contents of pyodide-0.24.1.tar.bz2 (found at the official source https://github.com/pyodide/pyodide/releases/tag/0.24.1) to the *pyodide* folder which is stored at the same leve as the index.html file.
+The current version has self-hosting enabled. You can default to loading pyodide from the cdn by adjusting *script src* and commenting out *indexURL: "./pyodide/"* in the *loadPyodideEnvironment * function. The current configuration has you extract the contents of pyodide-0.24.1.tar.bz2 (found at the official source https://github.com/pyodide/pyodide/releases/tag/0.24.1) to the *pyodide* folder which is stored at the same level as the index.html file.
 
 ### Workspace and Editor
 
